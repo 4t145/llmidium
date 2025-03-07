@@ -1,0 +1,3 @@
+[submodule "libs/mcp-rust-sdk"]
+	path = libs/mcp-rust-sdk
+	url = https://github.com/4t145/rust-sdk.git
