@@ -1,0 +1,13 @@
+version: '3'
+services:
+  llmidium:
+    build:
+      context: .
+      dockerfile: docker/DockerFile
+    ports:
+      - "7777:7777"
+    volumes:
+      - ./data:/llmidium/data
+    environment:
+      - RUST_LOG=info
+    restart: unless-stopped

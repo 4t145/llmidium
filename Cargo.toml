@@ -1,0 +1,21 @@
+[package]
+name = "llmidium"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mcp-server = { path = "libs/mcp-rust-sdk/crates/mcp-server" }
+mcp-client = { path = "libs/mcp-rust-sdk/crates/mcp-client" }
+mcp-core = { path = "libs/mcp-rust-sdk/crates/mcp-core" }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+schemars = { version = "0.8" }
+axum = { version = "0.8", features = ["macros"] }
+tokio-util = { version = "0.7", features = ["io", "codec"] }
+rand = { version = "0.8" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+futures = "0.3"
+tracing = { version = "0" }
+clap = { version = "4.5.31", feature = ["derive", "env"], features = ["derive", "env"] }
