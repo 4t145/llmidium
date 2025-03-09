@@ -1,9 +1,5 @@
 #!/bin/bash
 
-
-# 确保宿主机上的目录存在
-mkdir -p ./nixos_config
-
 CONTAINER_ID=$(docker run -d \
   --name llmidium \
   -p 7777:7777 \

@@ -22,16 +22,17 @@ RUN mkdir -p src && \
     rm -rf src
 # 复制实际的源代码
 COPY src/ src/
-
 # 重新构建（这次会因为缓存而快很多）
 RUN cargo build --release  --target=x86_64-unknown-linux-musl
 
-FROM ubuntu as runtime 
-
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/* 
-
+FROM nixos/nix as runtime 
+ENV NIX_CONFIG="experimental-features = nix-command flakes"
+COPY llmidium-system/etc/nixos /etc/nixos
+RUN nix-channel --update && \
+    nix-env -iA nixpkgs.nixos-install-tools
+    # export PATH="/root/.nix-profile/bin:$PATH" && \
+    # cd /etc/nixos && \
+    # nixos-rebuild switch 
 # 设置工作目录
 WORKDIR /
 
