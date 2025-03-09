@@ -1,13 +1,12 @@
 use tokio::io;
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::EnvFilter;
-use web::App;
+use sse::App;
 
 pub mod broker;
 pub mod system;
-pub mod web;
+pub mod sse;
 pub mod clap;
-
 #[tokio::main]
 async fn main() -> io::Result<()> {
     // Set up file appender for logging
@@ -26,4 +25,17 @@ async fn main() -> io::Result<()> {
     let listener = tokio::net::TcpListener::bind(args.bind()).await?;
     tracing::debug!("listening on {}", listener.local_addr()?);
     axum::serve(listener, App::new().router()).await
+}
+
+#[macro_export]
+macro_rules! embed {
+    (
+        $path: literal
+    ) => {
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/embed/",
+            $path
+        ))
+    };
 }

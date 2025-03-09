@@ -1,0 +1,2 @@
+这是llmidium这台机器的文件系统，所有的文件资源都以"file://llmidium"开头，如果你想访问的文件是"/path"，那么这个资源在"file://llmidium/path"
+如你想访问这个文件系统的文件，你可以使用fs.*工具。

@@ -26,29 +26,11 @@ COPY src/ src/
 # 重新构建（这次会因为缓存而快很多）
 RUN cargo build --release  --target=x86_64-unknown-linux-musl
 
-# 使用更小的运行时镜像
-FROM nixos/nix as runtime 
+FROM ubuntu as runtime 
 
-# 确保网络功能正常工作
-RUN nix-channel --update && \
-    nix-env -iA nixpkgs.iana-etc && \
-    mkdir -p /etc/protocols && \
-    ln -sf /nix/store/*/etc/protocols /etc/protocols && \
-    mkdir -p /etc/services && \
-    ln -sf /nix/store/*/etc/services /etc/services
-
-# 配置Nix启用实验性功能
-RUN mkdir -p /etc/nix && \
-    echo "experimental-features = nix-command flakes" > /etc/nix/nix.conf
-
-# 安装nixos系统工具 - 修复包路径错误
-RUN nix-channel --add https://nixos.org/channels/nixos-unstable nixos && \
-    nix-channel --update && \
-    nix-env -iA nixos.nixos-rebuild && \
-    nix-env -f '<nixpkgs>' -iA nixos-install-tools
-
-# 创建/nixos目录用于宿主机映射
-RUN mkdir -p /nixos && chmod 777 /nixos
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* 
 
 # 设置工作目录
 WORKDIR /
@@ -70,6 +52,7 @@ RUN chmod 4755 /llmidium
 # USER llmidium
 
 # 暴露需要的端口
+EXPOSE 7777
 
 # 设置启动命令，明确指定监听所有网络接口
 CMD ["/llmidium", "--host", "0.0.0.0"]

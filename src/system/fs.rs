@@ -3,12 +3,16 @@
 //! This module provides a structured interface for various file system operations
 //! including reading, writing, creating, and manipulating files and directories.
 
+use chrono::Utc;
 use mcp_core::handler::TypedToolHandler;
 use mcp_core::{Content, toolset::ToolSet};
+use mcp_core::{Resource, ToolError};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::default;
 use std::os::unix::fs::PermissionsExt;
+use std::time::UNIX_EPOCH;
+
+use crate::embed;
 
 pub fn toolset() -> ToolSet {
     let mut tool_set = ToolSet::default();
@@ -26,6 +30,17 @@ pub fn toolset() -> ToolSet {
     tool_set.add_tool(FsSetPermissions);
     tool_set.add_tool(FsChangeOwnership);
     tool_set
+}
+pub const FS_RESOURCE: &str = "file://llmidium";
+
+pub fn resource_set() -> Vec<Resource> {
+    vec![Resource {
+        uri: FS_RESOURCE.to_string(),
+        name: "fs".to_string(),
+        description: Some(embed!("resources/fs").to_owned()),
+        mime_type: "blob".to_string(),
+        annotations: None,
+    }]
 }
 
 /// Parameters for reading from a file.
@@ -48,7 +63,7 @@ impl TypedToolHandler for FsRead {
     }
 
     fn description(&self) -> &'static str {
-        "Read data from a file."
+        embed!("tools/fs/read")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -69,7 +84,7 @@ impl TypedToolHandler for FsWrite {
     }
 
     fn description(&self) -> &'static str {
-        "Write data to a file."
+        embed!("tools/fs/write")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -115,7 +130,7 @@ impl TypedToolHandler for FsCreate {
     }
 
     fn description(&self) -> &'static str {
-        "Create a new file with specified permissions."
+        embed!("tools/fs/create")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -156,7 +171,7 @@ impl TypedToolHandler for FsDelete {
     }
 
     fn description(&self) -> &'static str {
-        "Delete a file."
+        embed!("tools/fs/delete")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -183,7 +198,7 @@ impl TypedToolHandler for FsRename {
     }
 
     fn description(&self) -> &'static str {
-        "Rename a file."
+        embed!("tools/fs/rename")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -212,7 +227,7 @@ impl TypedToolHandler for FsMove {
     }
 
     fn description(&self) -> &'static str {
-        "Move a file to a new location."
+        embed!("tools/fs/move")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -241,14 +256,14 @@ impl TypedToolHandler for FsCopy {
     }
 
     fn description(&self) -> &'static str {
-        "Copy a file to a new location."
+        embed!("tools/fs/copy")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
-        tokio::fs::copy(&params.source_path, &params.destination_path)
+        let size = tokio::fs::copy(&params.source_path, &params.destination_path)
             .await
             .map_err(mcp_core::ToolError::execution)?;
-        Ok(vec![])
+        Ok(vec![Content::text(size.to_string())])
     }
 }
 
@@ -270,7 +285,7 @@ impl TypedToolHandler for FsListDirectory {
     }
 
     fn description(&self) -> &'static str {
-        "List contents of a directory."
+        embed!("tools/fs/list")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -278,17 +293,18 @@ impl TypedToolHandler for FsListDirectory {
             .await
             .map_err(mcp_core::ToolError::execution)?;
 
-        let mut contents = Vec::new();
+        let mut contents = String::new();
         while let Some(entry) = entries
             .next_entry()
             .await
             .map_err(mcp_core::ToolError::execution)?
         {
+            use std::fmt::Write;
             let path = entry.path();
-            contents.push(Content::text(path.to_string_lossy().into_owned()));
+            writeln!(&mut contents, "{}", path.to_string_lossy()).map_err(ToolError::execution)?;
         }
 
-        Ok(contents)
+        Ok(vec![Content::text(contents)])
     }
 }
 
@@ -308,7 +324,7 @@ impl TypedToolHandler for FsMakeDirectory {
     }
 
     fn description(&self) -> &'static str {
-        "Create a new directory with specified permissions."
+        embed!("tools/fs/mkdir")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -343,7 +359,7 @@ impl TypedToolHandler for FsRemoveDirectory {
     }
 
     fn description(&self) -> &'static str {
-        "Remove a directory and optionally its contents."
+        embed!("tools/fs/rmdir")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -378,23 +394,28 @@ impl TypedToolHandler for FsGetFileInfo {
     }
 
     fn description(&self) -> &'static str {
-        "Get metadata information about a file."
+        embed!("tools/fs/info")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
         let metadata = tokio::fs::metadata(&params.path)
             .await
             .map_err(mcp_core::ToolError::execution)?;
-
+        let modified = metadata
+            .modified()
+            .map_err(ToolError::execution)
+            .map(|t| t.duration_since(UNIX_EPOCH).expect("time goes back"))?;
+        let modified = chrono::DateTime::<Utc>::from_timestamp(
+            modified.as_secs() as i64,
+            modified.subsec_nanos(),
+        );
         let info = serde_json::json!({
             "path": params.path,
             "size": metadata.len(),
-            "modified": metadata.modified()
-                .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
-                .ok(),
+            "modified": modified,
             "is_dir": metadata.is_dir(),
             "is_file": metadata.is_file(),
-            "permissions": metadata.permissions().mode(),
+            "permissions": format!("{:o}", metadata.permissions().mode()),
         });
 
         Ok(vec![Content::text(
@@ -419,7 +440,7 @@ impl TypedToolHandler for FsSetPermissions {
     }
 
     fn description(&self) -> &'static str {
-        "Set file permissions."
+        embed!("tools/fs/chmod")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {
@@ -449,7 +470,7 @@ impl TypedToolHandler for FsChangeOwnership {
     }
 
     fn description(&self) -> &'static str {
-        "Change file ownership (Unix only)."
+        embed!("tools/fs/chown")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<mcp_core::Content>> {

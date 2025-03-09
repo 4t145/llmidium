@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use mcp_core::{Content, handler::TypedToolHandler};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::embed;
 #[derive(Debug, Default)]
 pub struct Process {}
 
@@ -45,7 +47,7 @@ impl TypedToolHandler for Process {
     }
 
     fn description(&self) -> &'static str {
-        "execute a process, output[0]: status code, output[1]: stdout, output[2]: stderr"
+        embed!("tools/process")
     }
 
     async fn call(&self, params: Self::Params) -> mcp_core::ToolResult<Vec<Content>> {

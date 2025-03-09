@@ -9,11 +9,18 @@ use mcp_core::{
 };
 use mcp_server::Router;
 use serde_json::Value;
-pub mod process;
+
+use crate::embed;
 pub mod fs;
+pub mod process;
+pub mod prompt;
+pub mod broker;
+
 #[derive(Debug, Clone)]
 pub struct SystemRouter {
     tool_set: Arc<ToolSet>,
+    resource: Arc<[Resource]>,
+    prompt: Arc<[Prompt]>,
 }
 
 impl SystemRouter {
@@ -21,17 +28,21 @@ impl SystemRouter {
         let mut tool_set = ToolSet::default();
         tool_set.add_tool(process::Process::default());
         tool_set.extend(fs::toolset());
-        SystemRouter { tool_set: tool_set.into() }
+        SystemRouter {
+            tool_set: tool_set.into(),
+            resource: Arc::from(fs::resource_set()),
+            prompt: prompt::prompts().into(),
+        }
     }
 }
 
 impl Router for SystemRouter {
     fn name(&self) -> String {
-        "system".to_string()
+        "llmidium".to_string()
     }
 
     fn instructions(&self) -> String {
-        "System tools".to_string()
+        embed!("/instructions").to_owned()
     }
 
     fn capabilities(&self) -> ServerCapabilities {
@@ -49,7 +60,7 @@ impl Router for SystemRouter {
         }
     }
 
-    fn list_tools(&self) -> Vec<Tool> {
+    async fn list_tools(&self) -> Vec<Tool> {
         self.tool_set.list_all()
     }
 
@@ -61,19 +72,26 @@ impl Router for SystemRouter {
         self.tool_set.call(tool_name, arguments).await
     }
 
-    fn list_resources(&self) -> Vec<Resource> {
-        vec![]
+    async fn list_resources(&self) -> Vec<Resource> {
+        self.resource.to_vec()
     }
 
     async fn read_resource(&self, uri: &str) -> Result<String, ResourceError> {
-        Err(ResourceError::NotFound("no resource".into()))
+        if let Some(path) = uri.strip_prefix(fs::FS_RESOURCE) {
+            return tokio::fs::read_to_string(path)
+                .await
+                .map_err(ResourceError::execution);
+        }
+        Err(ResourceError::NotFound("no such resource".into()))
     }
 
-    fn list_prompts(&self) -> Vec<Prompt> {
-        vec![]
+    async fn list_prompts(&self) -> Vec<Prompt> {
+        self.prompt.to_vec()
     }
 
     async fn get_prompt(&self, prompt_name: &str) -> Result<String, PromptError> {
-        Err(PromptError::NotFound("no prompt".into()))
+        prompt::get(prompt_name).ok_or(
+            PromptError::NotFound(format!("{prompt_name} not found"))
+        )
     }
 }

@@ -119,6 +119,7 @@ async fn sse_handler(State(app): State<App>) -> Sse<impl Stream<Item = Result<Ev
                 .await
                 .inspect_err(|e| tracing::error!(?e, "server run error"));
             app.txs.write().await.remove(&session);
+            tracing::info!(%session, "sse connection terminated");
         });
     }
 

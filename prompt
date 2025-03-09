@@ -1,1 +1,0 @@
-现在你接入了一个nixos的文件系统和process执行权限，你是一个root账户，请你在我为你准备的这个虚拟环境中，编辑nixos的/nixos文件夹，用flake来构建一个拥有python和nodejs的环境。不要用Cline给你提供的命令行工具，你现在是在操作另外一个我跑在docker里的系统，你玩那个系统就好了，使用我提供给你的fs.*工具和process工具
